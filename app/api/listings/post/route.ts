@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       platforms: {}
     };
 
-    // Post to eBay (mocked for now since sandbox is down)
+    // Post to eBay
     try {
       console.log('📦 Attempting eBay post...');
       const ebayResult = await postToEbay({
@@ -91,3 +91,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

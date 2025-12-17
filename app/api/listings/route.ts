@@ -5,7 +5,6 @@ export async function POST(request: Request) {
   try {
     const { title, description, price, category, condition, images, userId } = await request.json();
 
-    // Validate
     if (!title || !description || !price || !userId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -13,7 +12,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create listing in database
     const listing = await prisma.listing.create({
       data: {
         title,
@@ -65,3 +63,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const dynamic = 'force-dynamic';
