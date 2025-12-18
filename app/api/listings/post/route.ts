@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { postToFacebookMarketplace } from '@/lib/services/facebook';
 import { postToEbay } from '@/lib/services/ebay';
 
 export async function POST(request: Request) {
@@ -12,11 +11,18 @@ export async function POST(request: Request) {
     }
 
     const listing = await prisma.listing.findUnique({
-      where: { id: listingId }
+      where: { id: listingId },
+      include: { user: true }
     });
 
     if (!listing) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+    }
+
+    if (!listing.user.ebayToken) {
+      return NextResponse.json({ 
+        error: 'eBay not connected. Please connect your eBay account first.' 
+      }, { status: 400 });
     }
 
     const results: any = {
@@ -24,18 +30,18 @@ export async function POST(request: Request) {
       platforms: {}
     };
 
-    // Post to eBay
+    // Post to eBay with user token
     try {
-      console.log('📦 Attempting eBay post...');
+      console.log('📦 Posting to eBay...');
       const ebayResult = await postToEbay({
         title: listing.title,
         description: listing.description,
         price: listing.price,
-        category: listing.category || 'Other',
-        condition: listing.condition || 'used',
+        category: listing.category || '99',
+        condition: listing.condition || 'USED_GOOD',
         images: listing.images,
         quantity: 1
-      });
+      }, listing.user.ebayToken);
 
       await prisma.listing.update({
         where: { id: listingId },
@@ -48,8 +54,7 @@ export async function POST(request: Request) {
 
       results.platforms.ebay = { 
         success: true, 
-        url: ebayResult.ebayUrl,
-        message: ebayResult.message 
+        url: ebayResult.ebayUrl 
       };
       
     } catch (error: any) {
@@ -57,37 +62,15 @@ export async function POST(request: Request) {
       results.platforms.ebay = { success: false, error: error.message };
     }
 
-    // Post to Facebook
-    try {
-      console.log('📘 Attempting Facebook post...');
-      const fbResult = await postToFacebookMarketplace({
-        title: listing.title,
-        description: listing.description,
-        price: listing.price,
-        category: listing.category || 'Other',
-        condition: listing.condition || 'used',
-        images: listing.images
-      });
-
-      await prisma.listing.update({
-        where: { id: listingId },
-        data: {
-          fbStatus: 'active',
-          fbUrl: fbResult.url
-        }
-      });
-
-      results.platforms.facebook = { success: true, url: fbResult.url };
-      
-    } catch (error: any) {
-      console.error('❌ Facebook error:', error);
-      results.platforms.facebook = { success: false, error: error.message };
-    }
+    // Facebook note
+    results.platforms.facebook = { 
+      success: false, 
+      message: 'Facebook posting works on local machine only' 
+    };
 
     return NextResponse.json(results);
 
   } catch (error: any) {
-    console.error('❌ Post error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

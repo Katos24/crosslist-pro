@@ -8,42 +8,40 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   listings      Listing[]
   ebayToken     String?
+  ebayRefreshToken String?
   fbToken       String?
 }
 
 model Listing {
-  id            String    @id @default(cuid())
-  title         String
-  description   String
-  price         Float
-  images        String[]
-  category      String?
-  condition     String?
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  category    String?
+  condition   String?
+  images      String[]
   
-  // Platform statuses
-  ebayId        String?
-  ebayStatus    String?
-  ebayUrl       String?
+  ebayId      String?
+  ebayStatus  String?
+  ebayUrl     String?
   
-  fbId          String?
-  fbStatus      String?
-  fbUrl         String?
+  fbId        String?
+  fbStatus    String?
+  fbUrl       String?
   
-  // Metadata
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  soldAt        DateTime?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
   
-  @@index([userId])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  soldAt      DateTime?
 }

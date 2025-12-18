@@ -10,16 +10,21 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@prisma/client": "^5.22.0",
+    "autoprefixer": "^10.4.18",
     "axios": "^1.6.5",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^17.2.3",
+    "ebay-api": "^9.3.1",
     "next": "14.2.18",
     "next-auth": "^4.24.5",
     "react": "^18",
     "react-dom": "^18",
-    "zod": "^3.22.4",
     "tailwindcss": "^3.4.1",
-    "autoprefixer": "^10.4.18"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

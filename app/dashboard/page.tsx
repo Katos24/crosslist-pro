@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface Listing {
@@ -9,68 +9,117 @@ interface Listing {
   title: string;
   description: string;
   price: number;
-  category: string | null;
-  condition: string | null;
+  category: string;
+  condition: string;
   images: string[];
   ebayStatus: string | null;
   fbStatus: string | null;
-  createdAt: string;
+  soldAt: Date | null;
+  createdAt: Date;
 }
 
 export default function Dashboard() {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState('');
+  const searchParams = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('');
+  const [ebayConnected, setEbayConnected] = useState(false);
+  const [checkingEbay, setCheckingEbay] = useState(true);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
-    const email = localStorage.getItem('userEmail');
+    const name = localStorage.getItem('userName');
     
     if (!userId) {
       router.push('/auth/login');
-    } else {
-      setUserEmail(email || '');
-      fetchListings(userId);
+      return;
     }
-  }, [router]);
 
-  const fetchListings = async (userId: string) => {
+    setUserName(name || 'User');
+    loadListings(userId);
+    checkEbayConnection(userId);
+
+    // Check for OAuth success/error messages
+    const ebayStatus = searchParams.get('ebay');
+    if (ebayStatus === 'connected') {
+      alert('✅ eBay account connected successfully!');
+      // Force recheck
+      setTimeout(() => checkEbayConnection(userId), 500);
+    } else if (ebayStatus === 'error') {
+      alert('❌ Failed to connect eBay account. Please try again.');
+    }
+  }, [router, searchParams]);
+
+  const loadListings = async (userId: string) => {
     try {
       const res = await fetch(`/api/listings?userId=${userId}`);
       const data = await res.json();
       setListings(data.listings || []);
     } catch (error) {
-      console.error('Failed to fetch listings:', error);
+      console.error('Failed to load listings:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
-    router.push('/');
+  const checkEbayConnection = async (userId: string) => {
+    setCheckingEbay(true);
+    try {
+      const res = await fetch(`/api/ebay/status?userId=${userId}`);
+      const data = await res.json();
+      setEbayConnected(data.connected);
+      console.log('eBay connected:', data.connected);
+    } catch (error) {
+      console.error('Failed to check eBay status:', error);
+    } finally {
+      setCheckingEbay(false);
+    }
   };
 
-  const activeListings = listings.filter(l => !l.ebayStatus && !l.fbStatus).length;
-  const soldListings = listings.filter(l => l.ebayStatus === 'sold' || l.fbStatus === 'sold').length;
-  const totalRevenue = listings
-    .filter(l => l.ebayStatus === 'sold' || l.fbStatus === 'sold')
-    .reduce((sum, l) => sum + l.price, 0);
+  const connectEbay = () => {
+    const userId = localStorage.getItem('userId');
+    window.location.href = `/api/ebay/auth?userId=${userId}`;
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/auth/login');
+  };
+
+  const activeListings = listings.filter(l => !l.soldAt);
+  const soldListings = listings.filter(l => l.soldAt);
+  const totalRevenue = soldListings.reduce((sum, l) => sum + l.price, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <nav className="border-b border-white/10 bg-white/5 backdrop-blur-md">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold text-white">
+          <Link href="/dashboard" className="text-2xl font-bold text-white">
             CrossList<span className="text-purple-400">Pro</span>
-          </div>
+          </Link>
           <div className="flex items-center gap-4">
-            <span className="text-gray-300">{userEmail}</span>
+            {checkingEbay ? (
+              <span className="text-gray-400 text-sm">Checking eBay...</span>
+            ) : ebayConnected ? (
+              <span className="text-green-400 text-sm font-semibold">✅ eBay Connected</span>
+            ) : (
+              <button
+                onClick={connectEbay}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-semibold transition"
+              >
+                🔗 Connect eBay
+              </button>
+            )}
+            <Link
+              href="/dashboard/create"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition"
+            >
+              + Create Listing
+            </Link>
             <button
               onClick={handleLogout}
-              className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition"
+              className="text-gray-300 hover:text-white"
             >
               Logout
             </button>
@@ -79,75 +128,95 @@ export default function Dashboard() {
       </nav>
 
       <div className="container mx-auto px-6 py-12">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-white">Dashboard</h1>
-          <Link
-            href="/dashboard/create"
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition"
-          >
-            + Create Listing
-          </Link>
-        </div>
-        
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <h1 className="text-4xl font-bold text-white mb-2">
+          Welcome back, {userName}! 👋
+        </h1>
+        <p className="text-gray-400 mb-12">Manage your cross-platform listings</p>
+
+        {!ebayConnected && !checkingEbay && (
+          <div className="bg-yellow-500/20 border border-yellow-500 text-yellow-200 px-6 py-4 rounded-lg mb-8">
+            ⚠️ <strong>Connect your eBay account</strong> to start posting listings to eBay!
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <div className="text-3xl font-bold text-white mb-2">{activeListings}</div>
-            <div className="text-gray-300">Active Listings</div>
+            <p className="text-gray-400 text-sm mb-2">Active Listings</p>
+            <p className="text-4xl font-bold text-white">{activeListings.length}</p>
           </div>
           <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <div className="text-3xl font-bold text-white mb-2">{soldListings}</div>
-            <div className="text-gray-300">Items Sold</div>
+            <p className="text-gray-400 text-sm mb-2">Items Sold</p>
+            <p className="text-4xl font-bold text-green-400">{soldListings.length}</p>
           </div>
           <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <div className="text-3xl font-bold text-white mb-2">${totalRevenue.toFixed(2)}</div>
-            <div className="text-gray-300">Total Revenue</div>
+            <p className="text-gray-400 text-sm mb-2">Total Revenue</p>
+            <p className="text-4xl font-bold text-green-400">${totalRevenue.toFixed(2)}</p>
           </div>
         </div>
 
-        {/* Listings */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6">Your Listings</h2>
-          
-          {loading ? (
-            <p className="text-gray-400 text-center py-8">Loading...</p>
-          ) : listings.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-300 mb-6">No listings yet. Create your first one!</p>
+        <h2 className="text-2xl font-bold text-white mb-6">Your Listings</h2>
+
+        {loading ? (
+          <p className="text-gray-400">Loading...</p>
+        ) : listings.length === 0 ? (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20 text-center">
+            <p className="text-gray-400 mb-4">No listings yet</p>
+            <Link
+              href="/dashboard/create"
+              className="inline-block bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition"
+            >
+              Create Your First Listing
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {listings.map((listing) => (
               <Link
-                href="/dashboard/create"
-                className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 rounded-lg font-semibold transition"
+                key={listing.id}
+                href={`/dashboard/listings/${listing.id}`}
+                className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden hover:border-purple-500 transition cursor-pointer"
               >
-                Create New Listing
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {listings.map((listing) => (
-                <div key={listing.id} className="bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-1">{listing.title}</h3>
-                      <p className="text-gray-400 text-sm mb-2">{listing.description.substring(0, 100)}...</p>
-                      <div className="flex gap-4 text-sm">
-                        <span className="text-green-400 font-semibold">${listing.price}</span>
-                        {listing.category && <span className="text-gray-500">{listing.category}</span>}
-                        {listing.condition && <span className="text-gray-500">{listing.condition}</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
-                        eBay: {listing.ebayStatus || 'Not Posted'}
+                {listing.images[0] && (
+                  <img
+                    src={listing.images[0]}
+                    alt={listing.title}
+                    className="w-full h-48 object-cover"
+                  />
+                )}
+                <div className="p-4">
+                  <h3 className="text-white font-semibold mb-2 line-clamp-2">
+                    {listing.title}
+                  </h3>
+                  <p className="text-green-400 font-bold text-xl mb-3">
+                    ${listing.price.toFixed(2)}
+                  </p>
+                  
+                  <div className="flex gap-2 mb-3">
+                    {listing.ebayStatus === 'active' && (
+                      <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                        🛒 eBay
                       </span>
-                      <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">
-                        FB: {listing.fbStatus || 'Not Posted'}
+                    )}
+                    {listing.fbStatus === 'active' && (
+                      <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                        📘 Facebook
                       </span>
-                    </div>
+                    )}
+                    {listing.soldAt && (
+                      <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">
+                        ✅ Sold
+                      </span>
+                    )}
                   </div>
+
+                  <p className="text-sm text-gray-400">
+                    {new Date(listing.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
