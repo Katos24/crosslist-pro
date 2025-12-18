@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -18,7 +18,7 @@ interface Listing {
   createdAt: Date;
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
@@ -40,11 +40,9 @@ export default function Dashboard() {
     loadListings(userId);
     checkEbayConnection(userId);
 
-    // Check for OAuth success/error messages
     const ebayStatus = searchParams.get('ebay');
     if (ebayStatus === 'connected') {
       alert('✅ eBay account connected successfully!');
-      // Force recheck
       setTimeout(() => checkEbayConnection(userId), 500);
     } else if (ebayStatus === 'error') {
       alert('❌ Failed to connect eBay account. Please try again.');
@@ -69,7 +67,6 @@ export default function Dashboard() {
       const res = await fetch(`/api/ebay/status?userId=${userId}`);
       const data = await res.json();
       setEbayConnected(data.connected);
-      console.log('eBay connected:', data.connected);
     } catch (error) {
       console.error('Failed to check eBay status:', error);
     } finally {
@@ -219,5 +216,17 @@ export default function Dashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
